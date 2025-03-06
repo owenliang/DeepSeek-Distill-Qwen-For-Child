@@ -1,15 +1,15 @@
 from modelscope import AutoModelForCausalLM, AutoTokenizer
 import os
 
-# Find latest checkpoint
-checkpoints=os.listdir('qwen_distill/')
-latest_checkpoints=sorted(filter(lambda x: x.startswith('checkpoint'),checkpoints),key=lambda x: int(x.split('-')[-1]))[-1]
-lora_name=f'qwen_distill/{latest_checkpoints}'
-
 # Load base model
 model_name='Qwen/Qwen2.5-3B-Instruct'
 model=AutoModelForCausalLM.from_pretrained(model_name,torch_dtype="auto",device_map="auto")
 tokenizer=AutoTokenizer.from_pretrained(model_name)
+
+# Find latest checkpoint
+checkpoints=os.listdir('qwen_distill/')
+latest_checkpoints=sorted(filter(lambda x: x.startswith('checkpoint'),checkpoints),key=lambda x: int(x.split('-')[-1]))[-1]
+lora_name=f'qwen_distill/{latest_checkpoints}'
 
 def eval_qwen(model,query):
     messages=[
