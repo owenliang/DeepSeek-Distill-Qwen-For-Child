@@ -4,16 +4,28 @@ from modelscope import AutoModelForCausalLM, AutoTokenizer
 from transformers import TextIteratorStreamer
 from threading import Thread
 
-MAX_HISTORY_LEN=5
+MAX_HISTORY_LEN=3
+SYSTEM_PROMPT='''
+# 任务
+你现在扮演爸爸，给女儿赛西解答问题。
+
+# 回答格式
+<think>
+针对问题，逐步拆解、分析、反思，整理解答思路。
+</think>
+以爸爸的第一人称视角，给赛西开始讲解。
+'''
+
 def chat_streaming(model_selector,query,history):
     messages=[
-        {'role':'system','content':'作为家长，你负责回答孩子的问题，并给出解释。'}, 
+        {'role':'system','content':SYSTEM_PROMPT}, 
     ]
     for q,a in history:
         messages.append({'role':'user','content': q}, )
         messages.append({'role':'assistant','content': a}, )
     messages.append({'role':'user','content': query}, )
-    text=tokenizer.apply_chat_template(messages,tokenize=False,add_generation_prompt=True)
+    messages.append({'role':'assistant','content': '<think>'})
+    text=tokenizer.apply_chat_template(messages,tokenize=False,add_generation_prompt=False,continue_final_message=True)
     model_inputs=tokenizer([text], return_tensors="pt").to(model.device)
 
     if model_selector=='Qwen Base Model':
@@ -22,7 +34,7 @@ def chat_streaming(model_selector,query,history):
         model.enable_adapters()
 
     streamer=TextIteratorStreamer(tokenizer,skip_prompt=True,skip_special_tokens=True)
-    generation_kwargs=dict(model_inputs,streamer=streamer, max_new_tokens=2000)
+    generation_kwargs=dict(model_inputs,streamer=streamer,max_new_tokens=2000)
     thread=Thread(target=model.generate,kwargs=generation_kwargs)
     thread.start()
     for resp in streamer:
@@ -41,11 +53,13 @@ with gr.Blocks(css='.qwen-logo img {height:200px; width:600px; margin:0 auto;}')
         submit_btn=gr.Button(value='提交')
 
     def chat(model_selector,query,history):
-        full_resp=''
+        full_resp='<think>'
+        replace_resp=''
         for response in chat_streaming(model_selector,query,history):
             full_resp=full_resp+response
-            yield '',history+[(query,full_resp)]
-        history.append((query,full_resp))
+            replace_resp=full_resp.replace('<think>','[开始思考]\n').replace('</think>','\n[结束思考]\n')
+            yield '',history+[(query,replace_resp)]
+        history.append((query,replace_resp))
         while len(history)>MAX_HISTORY_LEN:
             history.pop(0)
     

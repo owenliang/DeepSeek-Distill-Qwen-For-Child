@@ -7,6 +7,17 @@ from peft import LoraConfig
 
 print('cuda support:',torch.cuda.is_available())
 
+SYSTEM_PROMPT='''
+# 任务
+你现在扮演爸爸，给女儿赛西解答问题。
+
+# 回答格式
+<think>
+针对问题，逐步拆解、分析、反思，整理解答思路。
+</think>
+以爸爸的第一人称视角，给赛西开始讲解。
+'''
+
 def load_distill_dataset():
     ds={'messages':[]}
     with open('r1_distill.txt','r') as f:
@@ -14,9 +25,9 @@ def load_distill_dataset():
         for line in lines:
             line=json.loads(line)
             sample=[
-                    {'role':'system','content':'作为家长，你负责回答孩子的问题，并给出解释。'}, 
+                    {'role':'system','content':SYSTEM_PROMPT}, 
                     {'role':'user','content': line['question']}, 
-                    {'role':'assistant','content': line['answer']},
+                    {'role':'assistant','content': f"<think>{line['reasoning']}</think>{line['answer']}"},
             ]
             ds['messages'].append(sample)
     return Dataset.from_dict(ds)
